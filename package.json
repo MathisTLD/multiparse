@@ -1,0 +1,23 @@
+{
+  "name": "multiparse",
+  "version": "0.0.0",
+  "description": "A multipart parser",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/index.js",
+    "postversion": "npm publish && git push && git push --tags"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MathisTLD/multiparse.git"
+  },
+  "author": "Mathis TLD",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MathisTLD/multiparse/issues"
+  },
+  "homepage": "https://github.com/MathisTLD/multiparse#readme",
+  "directories": {
+    "test": "test"
+  }
+}
