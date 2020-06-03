@@ -9,17 +9,6 @@ function isEndOfLine(el, index, array) {
   return array[index + 1] === 10;
 }
 
-function arraysEqual(a, b) {
-  if (a === b) return true;
-  if (a == null || b == null) return false;
-  if (a.length != b.length) return false;
-
-  for (var i = 0; i < a.length; ++i) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
 class MultipartParser extends EventEmitter {
   constructor(boundary) {
     super();
@@ -74,17 +63,20 @@ class MultipartParser extends EventEmitter {
     if (this.state === 0) {
       // push cursor to next non-blank line
       let nextLine = this.getLine(this.cursor);
-      while (decoder.decode(nextLine) === "\r\n") {
+      while (["\r\n", "\n", "\r"].includes(decoder.decode(nextLine))) {
+        console.warn("removing unnecessary blank line : ", nextLine);
         this.cursor += nextLine.length;
         nextLine = this.getLine(this.cursor);
       }
 
-      if (decoder.decode(nextLine) !== this.delimiter)
+      if (decoder.decode(nextLine) !== this.delimiter) {
+        console.error("unexpected line : ", nextLine);
         throw new Error(
           `a part must start with the boundary delimiter (got ${decoder.decode(
             nextLine
           )})`
         );
+      }
 
       let currentPart = (this.currentPart = {});
       let headers = (currentPart.headers = {});
