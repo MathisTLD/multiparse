@@ -17,6 +17,7 @@ class MultipartParser extends EventEmitter {
     this.boundary = boundary;
 
     this.buffer = new Uint8Array();
+    this.currentPart = {};
 
     this.state = 0;
     this.cursor = 0;
@@ -63,27 +64,34 @@ class MultipartParser extends EventEmitter {
     if (this.state === 0) {
       // push cursor to next non-blank line
       let nextLine = this.getLine(this.cursor);
-      while (["\r\n", "\n", "\r"].includes(decoder.decode(nextLine))) {
-        console.warn("removing unnecessary blank line : ", nextLine);
+      while (
+        this.cursor < buff.length &&
+        decoder.decode(nextLine) !== this.delimiter
+      ) {
+        console.warn(
+          "removing unnecessary non-boundary line : ",
+          JSON.stringify(decoder.decode(nextLine)),
+          nextLine
+        );
         this.cursor += nextLine.length;
         nextLine = this.getLine(this.cursor);
       }
+      if (decoder.decode(nextLine) === this.delimiter) {
+        delete this.currentPart;
+        this.currentPart = {};
+        let currentPart = this.currentPart;
+        currentPart.headers = {};
 
-      if (decoder.decode(nextLine) !== this.delimiter) {
-        console.error("unexpected line : ", nextLine);
+        this.cursor += this.delimiter.length;
+
+        this.state = 1;
+      } else {
         throw new Error(
-          `a part must start with the boundary delimiter (got ${decoder.decode(
-            nextLine
-          )})`
+          `unexpected line `,
+          JSON.stringify(decoder.decode(nextLine)),
+          nextLine
         );
       }
-
-      let currentPart = (this.currentPart = {});
-      let headers = (currentPart.headers = {});
-
-      this.cursor += this.delimiter.length;
-
-      this.state = 1;
     }
     if (this.state === 1) {
       // parsing headers
@@ -109,6 +117,8 @@ class MultipartParser extends EventEmitter {
 
         this.cursor += encoder.encode("\r\n").length;
         this.state = 2;
+      } else {
+        throw new Error("Unexpected line " + decoder.decode(nextLine));
       }
     }
     if (this.state === 2) {
@@ -118,9 +128,8 @@ class MultipartParser extends EventEmitter {
         this.currentPart.body = body;
 
         this.cursor += contentLength;
-        this.state = 0;
-
         this.data();
+        this.state = 0;
       }
     }
   }
@@ -136,9 +145,18 @@ class MultipartParser extends EventEmitter {
 
     let contentLength = part.contentLength;
 
-    let body;
     let array = part.body;
-    switch (contentType) {
+    let body = array.buffer.slice(
+      array.byteOffset,
+      array.byteLength + array.byteOffset
+    );
+
+    return { headers, type: contentType, length: contentLength, body };
+  }
+  static formatBody(part) {
+    let array = new Uint8Array(part.body);
+    let body;
+    switch (part.type) {
       case "application/json":
         body = JSON.parse(decoder.decode(array));
         break;
@@ -146,12 +164,9 @@ class MultipartParser extends EventEmitter {
         body = decoder.decode(array);
         break;
       default:
-        body = array.buffer.slice(
-          array.byteOffset,
-          array.byteLength + array.byteOffset
-        );
+        body = array.buffer;
     }
-    return { headers, type: contentType, length: contentLength, body };
+    return { ...part, body };
   }
   static encoder = encoder;
   static decoder = decoder;
