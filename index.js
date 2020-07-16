@@ -76,21 +76,23 @@ class MultipartParser extends EventEmitter {
         this.cursor += nextLine.length;
         nextLine = this.getLine(this.cursor);
       }
-      if (decoder.decode(nextLine) === this.delimiter) {
-        delete this.currentPart;
-        this.currentPart = {};
-        let currentPart = this.currentPart;
-        currentPart.headers = {};
+      if (this.cursor < this.buffer.length) {
+        if (decoder.decode(nextLine) === this.delimiter) {
+          delete this.currentPart;
+          this.currentPart = {};
+          let currentPart = this.currentPart;
+          currentPart.headers = {};
 
-        this.cursor += this.delimiter.length;
+          this.cursor += this.delimiter.length;
 
-        this.state = 1;
-      } else {
-        throw new Error(
-          `unexpected line `,
-          JSON.stringify(decoder.decode(nextLine)),
-          nextLine
-        );
+          this.state = 1;
+        } else {
+          throw new Error(
+            `unexpected line `,
+            JSON.stringify(decoder.decode(nextLine)),
+            nextLine
+          );
+        }
       }
     }
     if (this.state === 1) {
