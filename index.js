@@ -130,6 +130,9 @@ class MultipartParser extends EventEmitter {
         this.cursor += contentLength;
         this.data();
         this.state = 0;
+        if (this.buffer.length > this.cursor) {
+          this.parse();
+        }
       }
     }
   }
