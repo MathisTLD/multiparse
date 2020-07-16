@@ -10,8 +10,9 @@ function isEndOfLine(el, index, array) {
 }
 
 class MultipartParser extends EventEmitter {
-  constructor(boundary) {
+  constructor(boundary, warn = false) {
     super();
+    this.warn = warn;
 
     if (!boundary) throw new Error("a boudary is required");
     this.boundary = boundary;
@@ -68,11 +69,12 @@ class MultipartParser extends EventEmitter {
         this.cursor < buff.length &&
         decoder.decode(nextLine) !== this.delimiter
       ) {
-        console.warn(
-          "removing unnecessary non-boundary line : ",
-          JSON.stringify(decoder.decode(nextLine)),
-          nextLine
-        );
+        if (this.warn)
+          console.warn(
+            "removing unnecessary non-boundary line : ",
+            JSON.stringify(decoder.decode(nextLine)),
+            nextLine
+          );
         this.cursor += nextLine.length;
         nextLine = this.getLine(this.cursor);
       }
