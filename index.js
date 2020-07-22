@@ -175,8 +175,8 @@ class MultipartParser extends EventEmitter {
     }
     return { ...part, body };
   }
-  static encoder = encoder;
-  static decoder = decoder;
 }
+MultipartParser.encoder = encoder;
+MultipartParser.decoder = decoder;
 
 module.exports = MultipartParser;
