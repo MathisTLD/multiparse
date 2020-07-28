@@ -30,6 +30,7 @@ class MultipartParser extends EventEmitter {
     return `--${this.boundary}--`;
   }
   getLine(start) {
+    if (this.buffer.indexOf(13, start) < 0) throw new Error("no new line");
     let end = this.buffer.indexOf(13, start) + 2;
     let line = this.buffer.subarray(start, end);
     return line;
@@ -64,71 +65,78 @@ class MultipartParser extends EventEmitter {
 
     if (this.state === 0) {
       // push cursor to next non-blank line
-      let nextLine = this.getLine(this.cursor);
-      while (
-        this.cursor < buff.length &&
-        decoder.decode(nextLine) !== this.delimiter
-      ) {
+      try {
+        let nextLine = this.getLine(this.cursor);
+        while (
+          this.cursor < buff.length &&
+          decoder.decode(nextLine) !== this.delimiter
+        ) {
+          if (this.warn)
+            console.warn(
+              "removing unnecessary non-boundary line : ",
+              JSON.stringify(decoder.decode(nextLine)),
+              nextLine
+            );
+          this.cursor += nextLine.length;
+          nextLine = this.getLine(this.cursor);
+          i++;
+        }
+        delete this.currentPart;
+        this.currentPart = {};
+        let currentPart = this.currentPart;
+        currentPart.headers = {};
+
+        this.cursor += nextLine.length;
+
+        this.state = 1;
+      } catch (e) {
+        //... just stop moving
         if (this.warn)
           console.warn(
-            "removing unnecessary non-boundary line : ",
-            JSON.stringify(decoder.decode(nextLine)),
-            nextLine
+            `incomplete next line (state ${this.state}): ${JSON.stringify(
+              decoder.decode(this.buffer.subarray(this.cursor))
+            )}`
           );
-        this.cursor += nextLine.length;
-        nextLine = this.getLine(this.cursor);
-      }
-      if (this.cursor < this.buffer.length) {
-        if (decoder.decode(nextLine) === this.delimiter) {
-          delete this.currentPart;
-          this.currentPart = {};
-          let currentPart = this.currentPart;
-          currentPart.headers = {};
-
-          this.cursor += this.delimiter.length;
-
-          this.state = 1;
-        } else {
-          throw new Error(
-            `unexpected line `,
-            JSON.stringify(decoder.decode(nextLine)),
-            nextLine
-          );
-        }
       }
     }
     if (this.state === 1) {
       // parsing headers
       let headers = this.currentPart.headers;
+      try {
+        let nextLine = this.getLine(this.cursor);
 
-      let nextLine = this.getLine(this.cursor);
+        while (decoder.decode(nextLine) !== "\r\n") {
+          let header = decoder.decode(nextLine);
+          headers[header.substring(0, header.indexOf(":"))] = header
+            .substring(header.indexOf(":") + 1)
+            .trim();
 
-      while (decoder.decode(nextLine) !== "\r\n") {
-        let header = decoder.decode(nextLine);
-        headers[header.substring(0, header.indexOf(":"))] = header
-          .substring(header.indexOf(":") + 1)
-          .trim();
+          this.cursor += nextLine.length;
+          nextLine = this.getLine(this.cursor);
+        }
 
-        this.cursor += nextLine.length;
-        nextLine = this.getLine(this.cursor);
-      }
-
-      if (decoder.decode(nextLine) === "\r\n") {
         // all headers have been parsed
         if (!headers.hasOwnProperty("Content-Length"))
           throw new Error(`Content length must be set`);
         this.currentPart.contentLength = Number(headers["Content-Length"]);
 
-        this.cursor += encoder.encode("\r\n").length;
+        this.cursor += nextLine.length;
         this.state = 2;
-      } else {
-        throw new Error("Unexpected line " + decoder.decode(nextLine));
+      } catch (e) {
+        //... just stop moving
+        if (this.warn)
+          console.warn(
+            `incomplete next line (state ${this.state}): ${JSON.stringify(
+              decoder.decode(this.buffer.subarray(this.cursor))
+            )}`
+          );
       }
     }
     if (this.state === 2) {
-      let contentLength = this.currentPart.contentLength;
-      if (buff.length >= this.cursor + contentLength) {
-        let body = buff.subarray(this.cursor, this.cursor + contentLength);
+      let { contentLength } = this.currentPart;
+      let contentEnd = this.cursor + contentLength;
+      if (buff.length >= contentEnd) {
+        let body = buff.subarray(this.cursor, contentEnd);
         this.currentPart.body = body;
 
         this.cursor += contentLength;
