@@ -14,8 +14,7 @@ class MultipartParser extends EventEmitter {
     super();
     this.warn = warn;
 
-    if (!boundary) throw new Error("a boudary is required");
-    this.boundary = boundary;
+    this.boundary = boundary || "";
 
     this.buffer = new Uint8Array();
     this.currentPart = {};
