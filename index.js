@@ -78,7 +78,6 @@ class MultipartParser extends EventEmitter {
             );
           this.cursor += nextLine.length;
           nextLine = this.getLine(this.cursor);
-          i++;
         }
         delete this.currentPart;
         this.currentPart = {};
