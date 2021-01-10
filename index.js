@@ -1,4 +1,6 @@
-const EventEmitter = require("events");
+const { Duplex } = require("stream");
+
+const GrowableUint8Array = require("./lib/growable-uint8-array");
 
 let encoder = new TextEncoder();
 let decoder = new TextDecoder();
@@ -9,82 +11,89 @@ function isEndOfLine(el, index, array) {
   return array[index + 1] === 10;
 }
 
-class MultipartParser extends EventEmitter {
+class MultipartParser extends Duplex {
   constructor(boundary, warn = false) {
-    super();
+    super({ readableObjectMode: true });
     this.warn = warn;
 
     this.boundary = boundary || "";
 
-    this.buffer = new Uint8Array();
+    this.buffer = new GrowableUint8Array();
     this.currentPart = {};
 
     this.state = 0;
     this.cursor = 0;
   }
-  get delimiter() {
-    return `--${this.boundary}\r\n`;
-  }
-  get endDelimiter() {
-    return `--${this.boundary}--`;
-  }
   getLine(start) {
-    if (this.buffer.indexOf(13, start) < 0) throw new Error("no new line");
-    let end = this.buffer.indexOf(13, start) + 2;
-    let line = this.buffer.subarray(start, end);
+    const endIndex = this.buffer.indexOf(13, start); // indexOf re-implemented in GrowableUint8Array
+    if (endIndex < 0) throw new Error("no new line");
+    const line = this.buffer.subarray(start, endIndex + 2);
     return line;
   }
   purge(i) {
     if (i > this.cursor) throw new Error("cannot purge after cursor");
-    this.buffer = this.buffer.slice(i);
+
+    // avoid creating new buffer if clearing all previous data
+    if (i >= this.buffer.length) {
+      this.buffer.bytesUsed = 0;
+    } else {
+      this.buffer = this.buffer.slice(i);
+    }
+
     this.cursor -= i;
   }
-  error(e) {
-    this.emit("error", e);
-  }
-  data() {
-    let part = MultipartParser.formatPart(this.currentPart);
-    this.emit("data", part);
+  emitData() {
+    const part = MultipartParser.formatPart(this.currentPart);
+    this.push(part);
     this.purge(this.cursor);
   }
-  end() {
-    this.emit("end");
-  }
-  feed(buff) {
-    let prevBuff = this.buffer;
-    let l = prevBuff.length + buff.length;
-    this.buffer = new Uint8Array(prevBuff.length + buff.length);
-    this.buffer.set(prevBuff);
-    this.buffer.set(buff, prevBuff.length);
-
+  _writev(chunks, callback) {
+    chunks.forEach(({ chunk }) => this.buffer.extend(chunk));
     this.parse();
+    callback();
   }
+  // must be implemented
+  _read() {}
   parse() {
-    let buff = this.buffer;
-
+    console;
+    const buff = this.buffer;
     if (this.state === 0) {
-      // push cursor to next non-blank line
+      // push cursor to next delimiter
+      const delimiterRegExp = new RegExp(`^--${this.boundary}`);
       try {
         let nextLine = this.getLine(this.cursor);
+        let nextLineAsString = decoder.decode(nextLine);
         while (
           this.cursor < buff.length &&
-          decoder.decode(nextLine) !== this.delimiter
+          !delimiterRegExp.test(nextLineAsString)
         ) {
           if (this.warn)
             console.warn(
               "removing unnecessary non-boundary line : ",
-              JSON.stringify(decoder.decode(nextLine)),
+              JSON.stringify(nextLineAsString),
               nextLine
             );
           this.cursor += nextLine.length;
           nextLine = this.getLine(this.cursor);
+          nextLineAsString = decoder.decode(nextLine);
         }
-        delete this.currentPart;
-        this.currentPart = {};
-        let currentPart = this.currentPart;
-        currentPart.headers = {};
+        const delimiter = nextLineAsString;
 
+        const offset = 2 + this.boundary.length;
+
+        if (
+          delimiter.length >= offset + 2 &&
+          delimiter[offset] === "-" &&
+          delimiter[offset + 1] === "-"
+        ) {
+          // end delimiter
+          // TODO: test this works ok
+          this.end();
+        }
         this.cursor += nextLine.length;
+
+        delete this.currentPart;
+        this.currentPart = { headers: {} };
 
         this.state = 1;
       } catch (e) {
@@ -102,15 +111,16 @@ class MultipartParser extends EventEmitter {
       let headers = this.currentPart.headers;
       try {
         let nextLine = this.getLine(this.cursor);
-
-        while (decoder.decode(nextLine) !== "\r\n") {
-          let header = decoder.decode(nextLine);
+        let nextLineAsString = decoder.decode(nextLine);
+        while (nextLineAsString !== "\r\n") {
+          let header = nextLineAsString;
           headers[header.substring(0, header.indexOf(":"))] = header
             .substring(header.indexOf(":") + 1)
             .trim();
 
           this.cursor += nextLine.length;
           nextLine = this.getLine(this.cursor);
+          nextLineAsString = decoder.decode(nextLine);
         }
 
         // all headers have been parsed
@@ -138,7 +148,7 @@ class MultipartParser extends EventEmitter {
         this.currentPart.body = body;
 
         this.cursor += contentLength;
-        this.data();
+        this.emitData();
         this.state = 0;
         if (this.buffer.length > this.cursor) {
           this.parse();
@@ -159,6 +169,7 @@ class MultipartParser extends EventEmitter {
     let contentLength = part.contentLength;
 
     let array = part.body;
+    // FIXME: why copying the array ?
     let body = array.buffer.slice(
       array.byteOffset,
       array.byteLength + array.byteOffset
@@ -167,17 +178,16 @@ class MultipartParser extends EventEmitter {
     return { headers, type: contentType, length: contentLength, body };
   }
   static formatBody(part) {
-    let array = new Uint8Array(part.body);
     let body;
     switch (part.type) {
       case "application/json":
-        body = JSON.parse(decoder.decode(array));
+        body = JSON.parse(decoder.decode(new Uint8Array(part.body)));
         break;
       case "application/xml":
-        body = decoder.decode(array);
+        body = decoder.decode(new Uint8Array(part.body));
         break;
       default:
-        body = array.buffer;
+        body = part.body;
     }
     return { ...part, body };
   }
