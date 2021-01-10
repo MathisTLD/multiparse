@@ -19,5 +19,8 @@
   "homepage": "https://github.com/MathisTLD/multiparse#readme",
   "directories": {
     "test": "test"
+  },
+  "devDependencies": {
+    "axios": "^0.21.1"
   }
 }
