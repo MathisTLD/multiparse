@@ -1,4 +1,4 @@
-const { Duplex } = require("stream");
+const { Transform } = require("stream");
 
 const GrowableUint8Array = require("./lib/growable-uint8-array");
 
@@ -11,7 +11,7 @@ function isEndOfLine(el, index, array) {
   return array[index + 1] === 10;
 }
 
-class MultipartParser extends Duplex {
+class MultipartParser extends Transform {
   constructor(boundary, warn = false) {
     super({ readableObjectMode: true });
     this.warn = warn;
@@ -47,13 +47,11 @@ class MultipartParser extends Duplex {
     this.push(part);
     this.purge(this.cursor);
   }
-  _writev(chunks, callback) {
-    chunks.forEach(({ chunk }) => this.buffer.extend(chunk));
+  _transform(chunk, encoding, callback) {
+    this.buffer.extend(chunk);
     this.parse();
     callback();
   }
-  // must be implemented
-  _read() {}
   parse() {
     const buff = this.buffer;
     if (this.state === 0) {
