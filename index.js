@@ -55,7 +55,6 @@ class MultipartParser extends Duplex {
   // must be implemented
   _read() {}
   parse() {
-    console;
     const buff = this.buffer;
     if (this.state === 0) {
       // push cursor to next delimiter
