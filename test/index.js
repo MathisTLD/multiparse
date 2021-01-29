@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const MultipartParser = require("../index");
+const MultipartParser = require("../src");
 
 async function test() {
   let nbFrames = 0;

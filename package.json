@@ -2,9 +2,15 @@
   "name": "multiparse",
   "version": "1.0.0",
   "description": "A multipart parser",
-  "main": "index.js",
+  "main": "src/index.js",
+  "browser": "dist/main.js",
+  "files": [
+    "dist/",
+    "src/"
+  ],
   "scripts": {
     "test": "node test/index.js",
+    "build": "webpack",
     "postversion": "npm publish && git push && git push --tags"
   },
   "repository": {
@@ -21,6 +27,13 @@
     "test": "test"
   },
   "devDependencies": {
-    "axios": "^0.21.1"
+    "axios": "^0.21.1",
+    "stream-browserify": "^3.0.0",
+    "webpack": "^5.18.0",
+    "webpack-cli": "^4.4.0"
+  },
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "util": "^0.12.3"
   }
 }

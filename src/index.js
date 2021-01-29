@@ -1,6 +1,6 @@
 const { Transform } = require("stream");
 
-const GrowableUint8Array = require("./lib/growable-uint8-array");
+const GrowableUint8Array = require("./growable-uint8-array");
 
 let encoder = new TextEncoder();
 let decoder = new TextDecoder();
