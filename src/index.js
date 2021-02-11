@@ -33,12 +33,10 @@ class MultipartParser extends Transform {
   purge(i) {
     if (i > this.cursor) throw new Error("cannot purge after cursor");
 
-    // avoid creating new buffer if clearing all previous data
-    if (i >= this.buffer.length) {
-      this.buffer.bytesUsed = 0;
-    } else {
-      this.buffer = this.buffer.slice(i);
-    }
+    // avoid creating new buffer
+    const remaining = this.buffer.unwrap(false).slice(i);
+    this.buffer.set(remaining);
+    this.buffer.bytesUsed = remaining.length;
 
     this.cursor -= i;
   }
