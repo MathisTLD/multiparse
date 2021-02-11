@@ -11,6 +11,7 @@
   "scripts": {
     "test": "node test/index.js",
     "build": "webpack",
+    "version": "npm run build  && git add -A dist",
     "postversion": "npm publish && git push && git push --tags"
   },
   "repository": {
