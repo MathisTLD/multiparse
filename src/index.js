@@ -48,6 +48,13 @@ class MultipartParser extends Transform {
     this.purge(this.cursor);
   }
   _transform(chunk, encoding, callback) {
+    if (this._lastChunk === chunk) {
+      // TODO: understand why this happens
+      callback();
+      return;
+    }
+    this._lastChunk = chunk;
+
     this.buffer.extend(chunk);
     this.parse();
     callback();
