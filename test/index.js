@@ -1,13 +1,13 @@
 const fs = require("fs");
 const path = require("path");
 
-const MultipartParser = require("../src");
+const MultipartParser = require("../lib");
 
 async function test() {
   let nbFrames = 0;
   const fpsCache = {
     date: null,
-    nbFrames,
+    nbFrames
   };
 
   const display = () => {
@@ -52,7 +52,7 @@ async function test() {
       end();
     });
 
-  const inputStream = require("./loop-stream")();
+  const inputStream = require("./finite-stream")();
   inputStream.pipe(parser, { close: false });
 }
 

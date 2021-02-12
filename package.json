@@ -2,15 +2,19 @@
   "name": "multiparse",
   "version": "1.0.2",
   "description": "A multipart parser",
-  "main": "src/index.js",
-  "browser": "dist/main.js",
+  "main": "./index.js",
+  "browser": {
+    "./index.js": "./dist/main.js"
+  },
   "files": [
     "dist/",
-    "src/"
+    "lib/",
+    "index.js"
   ],
   "scripts": {
     "test": "node test/index.js",
     "build": "webpack",
+    "preversion": "npm run test",
     "version": "npm run build  && git add -A dist",
     "postversion": "npm publish && git push && git push --tags"
   },
