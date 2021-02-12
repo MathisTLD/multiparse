@@ -1,6 +1,6 @@
 {
   "name": "multiparse",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A multipart parser",
   "main": "./index.js",
   "browser": {
